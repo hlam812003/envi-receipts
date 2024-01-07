@@ -1,85 +1,65 @@
-function updateReceiptHeight() {
-    const baseHeight = 300;
-    const itemHeight = 20;
-    const maxVisibleItems = 8;
-  
-    const items = document.querySelectorAll('.Receipt .item');
-    const itemCount = items.length;
-  
-    if (itemCount > maxVisibleItems) {
-      const extraItems = itemCount - maxVisibleItems;
-      const newHeight = baseHeight + (extraItems * itemHeight);
-      document.querySelector('.Receipt').style.height = `${newHeight}px`;
-    } else {
-      document.querySelector('.Receipt').style.height = `${baseHeight}px`;
-    }
-  }
-  
-  window.addEventListener('message', function(event) {
-    console.log("Received metadata:", event.data.metadata);
-    if (event.data.type === "ui") {
-        if (event.data.status) {
-            updateUI(event.data.metadata);
-            display(true);
-        } else {
-            display(false);
-        }
-    }
+$(function() {
+  display(false);
+
+  window.addEventListener('message', function(e) {
+    let item = e.data;
+    if (item.type === 'ui') {
+      display(item.status);
+      if (item.status) updateUI(item.metadata);
+    };
   });
-  
+
+  function updateReceiptHeight() {
+    const baseHeight = 300, itemHeight = 20, maxVisibleItems = 8;
+    const itemCount = $('.item').length;
+    const extraItems = Math.max(itemCount - maxVisibleItems, 0);
+    const newHeight = baseHeight + (extraItems * itemHeight);
+    $('.Receipt').css("height", `${newHeight}px`);
+  }
+
   function updateUI(metadata) {
-    console.log("Received metadata:", metadata);
-    $('.header div:nth-child(1)').text('Date: ' + metadata.date);
-    $('.header div:nth-child(2)').text('Time: ' + metadata.time);
-    $('.business-name').text(metadata.type);
+    $('.header div:nth-child(1)').html('Date: ' + metadata.date);
+    $('.header div:nth-child(2)').html('Time: ' + metadata.time);
+    $('.business-name').html(metadata.type);
     $('.item').remove();
-      for (var i = 1; metadata['item' + i] && metadata['price' + i]; i++) {
-        var itemDiv = $('<div class="item"></div>');
-        var descriptionDiv = $('<div class="description"></div>').text(metadata['item' + i]);
-        var priceDiv = $('<div class="price"></div>').text('$' + metadata['price' + i]);
-        itemDiv.append(descriptionDiv);
-        itemDiv.append(priceDiv);
-        $('.Receipt').append(itemDiv);
-    }
-    let totalCost = 0;
-    for (var i = 1; metadata['price' + i]; i++) {
-      totalCost += parseFloat(metadata['price' + i]);
-    }
   
-    $('.sub-total').text('Sub Total: $' + totalCost.toFixed(2));
-    $('.tax-amount').text('Tax: $' + metadata.tax_amount);
-    $('.grand-total').text('Total: $' + metadata.total_after_tax);
+    for (let i = 1; metadata[`item${i}`] && metadata[`price${i}`]; i++) {
+      const itemDiv = `
+        <div class="item">
+          <div class="description">${metadata[`item${i}`]}</div>
+          <div class="price">${moneyFormat(metadata[`price${i}`])}</div>
+        </div>
+        `;
+      $('.Receipt').append(itemDiv);
+    };
+  
+    let totalCost = Object.keys(metadata)
+      .filter(key => key.startsWith('price'))
+      .reduce((acc, key) => acc + parseFloat(metadata[key]), 0);
+  
+    $('.sub-total').html(`Sub Total: ${moneyFormat(totalCost)}`);
+    $('.tax-amount').html(`Tax: ${moneyFormat(metadata.tax_amount)}`);
+    $('.grand-total').html(`Total: ${moneyFormat(metadata.total_after_tax)}`);
     updateReceiptHeight();
-  }
-  
+  };
+
+  function moneyFormat(number) {
+    return "$" + parseFloat(number).toFixed(2);
+  };  
+
   function display(bool) {
+    // $('body').fadeToggle("100", bool);
     if (bool) {
-        $('.Receipt').fadeIn(350);
+      $('body').fadeIn("100");
     } else {
-        $('.Receipt').fadeOut(350);
+      $('body').fadeOut("100");
     }
-  }
+  };
   
-  $(function () {
-    display(false);
-  
-    window.addEventListener('keyup', function (event) {
-        if (event.key === 'Escape') {
-            console.log("Closing UI");
-            window.postMessage({ type: 'closeUI' });
-            return;
-        }
-    });
-  });
-  
-  window.addEventListener('message', (event) => {
-    const data = event.data;
-  
-    if (data.type === 'display') {
-        if (data.enable) {
-            document.getElementById('container').style.display = 'block';
-        } else {
-            document.getElementById('container').style.display = 'none';
-        }
+  $(document).on("keyup", function (e) {
+    if (e.which == 27) {
+      $('.Receipt').fadeOut("100");
+      $.post(`http://${GetParentResourceName()}/closeUI`);
     }
   });
+});
