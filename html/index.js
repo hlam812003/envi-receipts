@@ -58,7 +58,7 @@ $(function() {
   
   $(document).on("keyup", function (e) {
     if (e.which == 27) {
-      $('.Receipt').fadeOut("100");
+      display(false);
       $.post(`http://${GetParentResourceName()}/closeUI`);
     }
   });
